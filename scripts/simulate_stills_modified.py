@@ -6,6 +6,7 @@ import sys
 import pandas as pd
 import matplotlib.animation as animation
 import itertools
+import utils
 from pathlib import Path
 
 def roundUpToOdd(f):
@@ -171,7 +172,7 @@ def nearlyConstAccStep(particle, jerkScale, dt):
     
     
 
-#########################START MAIN
+#########################START MAIN########################
 
     
 if __name__ == '__main__':
@@ -180,8 +181,8 @@ if __name__ == '__main__':
 
     writeVid = True
     displayVid = False
-    outdir = "..\\..\\videos\\simulated\\05062020\\RW\\"    
-    
+    outdir = Path("../../videos/simulated/05062020/RW/")    
+    #outdir = "..\\..\\videos\\simulated\\05062020\\RW\\"    
     #specify image parameters
     nrows = 300
     ncols = 300
@@ -304,9 +305,9 @@ if __name__ == '__main__':
             # current frame; here we are just animating one artist, the image, in
             # each frame
             ims = []
-            #for i in range(convim.shape[2]):
-                #if i == 0:
-                    #plt.imshow(convim[:, :, i], origin = 'lower')
+            for i in range(convim.shape[2]):
+                if i == 0:
+                    plt.imshow(convim[:, :, i], origin = 'lower')
                 im_to_plot = plt.imshow(convim[:, :, i], animated=True, origin = 'lower')
                 ims.append([im_to_plot])
             
@@ -318,6 +319,6 @@ if __name__ == '__main__':
         if writeVid:
             name = str(npar) + "_" + str(round(jumpscale, 2))
             color = False
-            utils.writeVid(convim,outdir, name, 'MJPG', 1/dt, color)
-            df.to_csv(outdir + name + '.csv', index = False)
+            utils.writeVid(convim,outdir, name + '.avi', 'MJPG', 1/dt, color)
+            df.to_csv((outdir /name).with_suffix('.csv'), index = False)
 
