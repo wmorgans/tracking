@@ -131,8 +131,10 @@ def getNColours(N):
 def writeVid(video,outdir, name, codec, fps, color):
     vid = floatToUint(video)
     vidShape = vid.shape
-    fourcc = cv.VideoWriter_fourcc(*codec)
-    videoWriter = cv.VideoWriter((outdir/name).with_suffix('.avi'),fourcc, fps, (vidShape[1],vidShape[0]), isColor = color)
+    fourcc = cv.VideoWriter_fourcc(codec[0], codec[1], codec[2], codec[3])
+    filePath = outdir /name
+
+    videoWriter = cv.VideoWriter(str(filePath), fourcc, fps, (vidShape[1],vidShape[0]), isColor = color)
     for t in range(vidShape[-1]):
         if color:
             frame = vid[:,:,:,t]

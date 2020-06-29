@@ -7,6 +7,7 @@ import sys
 import pandas as pd
 import matplotlib.animation as animation
 import itertools
+import utils
 from pathlib import Path
 
 class SyntheticData():
@@ -77,13 +78,12 @@ class SyntheticData():
         self.tnow = 0.
         particlecount = 0
         while particlecount < self.npar:
-
             x = random.uniform(int(0.2*nrows),int(0.8*self.nrows))
             y = random.uniform(int(0.2*ncols),int(0.8*self.ncols))
-
             radiusx = self.avgrad*(np.random.pareto(self.paretoshape)+1)
             radiusy = self.avgrad*(np.random.pareto(self.paretoshape)+1)
             intensity = np.abs(np.random.normal(loc=self.avgint,scale=self.stdint))
+
             rotation = random.uniform(0,2*np.pi)
             vel = random.uniform(0, 2.5)
             self.particlesAtTime[particlecount,0] = particlecount
@@ -183,8 +183,7 @@ class SyntheticData():
         if ymin < 0:
             mod += 'y too small'
             particle = particle[-ymin:, :]
-            ymin = 0
-            
+            ymin = 0          
         if xmax > c:
             mod += 'x too big'
             particle = particle[:, :-(xmax - c)]
@@ -199,7 +198,6 @@ class SyntheticData():
             im[ymin: ymax, xmin: xmax] += particle
         except:
             print('error')
-            
             if mod == '':
                 mod += 'no modification'
             print(mod)            
@@ -224,8 +222,6 @@ class SyntheticData():
     
     def __roundUpToOdd(self, f):
         return np.ceil(f) // 2 * 2 + 1
-
-
 
     def __nearlyConstVelStep(particle, accScale, dt):
         accMag = random.gauss(-accScale, accScale)
