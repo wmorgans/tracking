@@ -12,10 +12,10 @@ from pathlib import Path
 
 class SyntheticData():
     
-    def __init__(self, method, nrows, ncols, npar, tend, dt, avgrad = 0.8, paretoshape = 3, avgint = 140,
-                 stdint = 50, micronstopix = 100/954.21, diff_coeff_mu = 3):
+    def __init__(self, mode, nrows, ncols, npar, tend, dt, avgrad = 0.8, paretoshape = 3, avgint = 140,
+                 stdint = 50, micronstopix = 100/954.21, diff_coeff_um = 3, acc_scale = 0.2):
         
-        self.method = method
+        self.mode = mode
         
         #specify image parameters
         self.nrows = nrows
@@ -28,7 +28,7 @@ class SyntheticData():
         self.tnow = 0.
         self.nframes = int(tend/dt)
         
-        #Determine dist to draw particle x and y rad from
+        #Determine dist to draw particles x and y rad from
         self.avgrad = avgrad
         self.paretoshape = paretoshape
         
@@ -37,14 +37,16 @@ class SyntheticData():
         self.stdint = stdint
         
         self.micronstopix = micronstopix #micronstopix [um/pi]
-        self.diff_coeff_mu = diff_coeff_mu #um^2/s
-        self.diff_coeff_pix = self.d_con_mu/pow(self.micronstopix,2) #pixels^2 per sec
+        self.diff_coeff_um = diff_coeff_um #um^2/s
+        self.diff_coeff_pix = self.diff_coeff_um/pow(self.micronstopix,2) #pixels^2 per sec
+        
+        #var of awgn for const v
+        self.acc_scale = acc_scale
         
         self.store_df = pd.DataFrame(index=np.arange(self.npar*(self.nframes)),columns=['pid', 't', 'x', 'y', 'rx', 'ry', 'int', 'rot', 'v', 'frame'], dtype = float)
         self.particlesAtTime = np.zeros((self.npar,self.store_df.shape[1]))
         
         self.im = np.zeros((self.nrows, self.ncols, self.nframes),dtype='float')
-        
         self.convim = self.im.copy()
         
         #make convolved image through pointspread function
@@ -69,23 +71,61 @@ class SyntheticData():
         plt.show()
         
     def writeVid(self, outDir):
-        name = str(self.method) + str(self.npar) + "_" + str(round(1/np.sqrt(self.d_con_pix*2*self.dt) , 2))
+        name = str(self.mode) + "_" + str(self.npar) + "_" + str(self.diff_coeff_um)
         color = False
         utils.writeVid(self.convim,outDir, name, 'MJPG', 1/self.dt, color)
-        self.df.to_csv(outDir/name + '.csv', index = False)
+        name += '.csv'
+        self.store_df.to_csv(outDir/name, index = False)
+        
+    def __determineRunsAndRests(self):
+        self.runsAndRests = {}
+        for pID in range(self.npar):
+            self.runsAndRests[pID] = []
+            if 0.9 > np.random.uniform():
+                mode = 'RW'
+                #Determine duration from truncated powerlaw 
+                duration = 
+            else:
+                mode = 'Dir'
+                #Determine duration from truncated powerlaw
+                duration = 
+            self.runsAndRests[pID].append(mode, duration)
+            
+        persist = True
+        i = 0
+        while persist:
+            persist = False
+            for pID in range(self.npar):
+                if self.runsAndRests[pID][-1][1] >= self.tend:
+                    continue
+                else:
+                    persist = True
+                    if self.runsAndRests[pID][-1][0] == 'RW':
+                        mode = 'Dir'
+                        #Determine duration from truncated powerlaw 
+                        duration = 
+                    if self.runsAndRests[pID][-1][0] == 'Dir':
+                        mode = 'RW'
+                        #Determine duration from truncated powerlaw 
+                        duration =                     
+                    self.runsAndRests[pID].append(mode, duration)
+                    
+            self.tempRunsAndRests = self.runsAndRests.copy()
+                    
+            
         
     def __writeFirstFrame(self):
         self.tnow = 0.
         particlecount = 0
         while particlecount < self.npar:
-            x = random.uniform(int(0.2*nrows),int(0.8*self.nrows))
-            y = random.uniform(int(0.2*ncols),int(0.8*self.ncols))
+            x = random.uniform(int(0.2*self.nrows),int(0.8*self.nrows))
+            y = random.uniform(int(0.2*self.ncols),int(0.8*self.ncols))
             radiusx = self.avgrad*(np.random.pareto(self.paretoshape)+1)
             radiusy = self.avgrad*(np.random.pareto(self.paretoshape)+1)
             intensity = np.abs(np.random.normal(loc=self.avgint,scale=self.stdint))
 
             rotation = random.uniform(0,2*np.pi)
-            vel = random.uniform(0, 2.5)
+            #vel = random.uniform(0, 2.5)
             self.particlesAtTime[particlecount,0] = particlecount
             self.particlesAtTime[particlecount,1] = self.tnow
             self.particlesAtTime[particlecount,2] = x
@@ -94,7 +134,7 @@ class SyntheticData():
             self.particlesAtTime[particlecount,5] = radiusy
             self.particlesAtTime[particlecount,6] = intensity
             self.particlesAtTime[particlecount,7] = rotation
-            self.particlesAtTime[particlecount,8] = vel
+            self.particlesAtTime[particlecount,8] = np.nan
             self.particlesAtTime[particlecount,9] = 0
         
             self.im[:, :, 0] = self.__placeGaussianMat(self.im[:, :, 0], x,y,radiusx,radiusy,intensity,rotation)
@@ -110,17 +150,40 @@ class SyntheticData():
         
     def __writeFrames(self):
         
-        rwStep = True
-        
         for frame in range(1, self.nframes):
             self.tnow += self.dt
             self.particlesAtTime[:, 1] = self.tnow
             self.particlesAtTime[:, 9] = frame
             for par in range(0,self.npar):
                 
-                if rwStep:
-                    self.particlesAtTime[par, :] = self.__rwStep(self.particlesAtTime[par, :], self.dt)
-                #self.particlesAtTime[par, :] = nearlyConstVelStep(particlesAtTime[par, :], accScale, dt)
+                t = self.tnow - self.dt
+                t_step = self.dt
+                
+                while t < self.tnow:
+                    
+                    t = self.tempRunsAndRests[par][0][1]
+                    
+                    if t > self.tnow:
+                        dt = t_step
+                    elif (t < self.tnow) and (t > self.tnow - t_step):
+                        dt = t_step - (t - self.tnow)
+                        t_step -= dt
+                        toPop = True
+                    else:
+                        print('error')
+                
+                    if self.tempRunsAndRests[par][0][0] == 'RW':
+                        
+                        self.particlesAtTime[par, :] = self.__rwStep(self.particlesAtTime[par, :], dt)
+                        
+                    elif self.tempRunsAndRests[par][0][0] == 'Dir':
+                        self.particlesAtTime[par, :] = nearlyConstVelStep(particlesAtTime[par, :], self.accScale, dt)
+                        
+                    if toPop:
+                        self.tempRunsAndRests[par].pop(0)
+                        
+                    
+                    
                 
                 self.im[:, :, frame] = self.__placeGaussianMat(self.im[:, :, frame], self.particlesAtTime[par,2],self.particlesAtTime[par,3],self.particlesAtTime[par,4],self.particlesAtTime[par,5],self.particlesAtTime[par,6],self.particlesAtTime[par,7])
 
@@ -134,7 +197,7 @@ class SyntheticData():
         
         
     def __placeGaussianMat(self, im, x_0,y_0,sig_x,sig_y,intensity,theta, nsig = 3):
-        r,c = im.shape
+        row,col = im.shape
         
         x_0_int = int(round(x_0))
         x_0_rem = x_0 - x_0_int 
@@ -170,7 +233,7 @@ class SyntheticData():
         ymax = y_0_int + y_range + 1
         
         #make sure particle is within the bounds of the mage
-        if (ymax < 0) or (xmax < 0) or (ymin > r) or (xmin > c):
+        if (ymax < 0) or (xmax < 0) or (ymin > row) or (xmin > col):
             #print('particle does not overlap with im')
             return im
         
@@ -184,14 +247,14 @@ class SyntheticData():
             mod += 'y too small'
             particle = particle[-ymin:, :]
             ymin = 0          
-        if xmax > c:
+        if xmax > col:
             mod += 'x too big'
-            particle = particle[:, :-(xmax - c)]
-            xmax = c
-        if ymax > r:
+            particle = particle[:, :-(xmax - col)]
+            xmax = col
+        if ymax > row:
             mod += 'y too big'
-            particle = particle[:-(ymax - r), :]
-            ymax = r
+            particle = particle[:-(ymax - row), :]
+            ymax = row
         
         #print(particle)
         try:
@@ -206,7 +269,7 @@ class SyntheticData():
 
     def __rwStep(self, particle, dt):
         
-        jumpscale = 1/np.sqrt(self.d_con_pix*2*dt) 
+        jumpscale = 1/np.sqrt(self.diff_coeff_pix*2*dt) 
         
         theta = random.uniform(0,2*np.pi)
         dinc = random.expovariate(jumpscale)
@@ -217,6 +280,7 @@ class SyntheticData():
     
         #could change this so that is calculates the velocity based on previos time steps
         particle[7] += random.uniform(-np.pi/4,np.pi/4)
+        particle[8] = np.nan
         
         return particle
     
@@ -226,6 +290,9 @@ class SyntheticData():
     def __nearlyConstVelStep(particle, accScale, dt):
         accMag = random.gauss(-accScale, accScale)
         accTheta = random.gauss(0, np.pi/8)
+        
+        if particle[8] == np.nan:
+            gene
         vel = particle[8] + accMag
         theta = particle[7] + accTheta
          
