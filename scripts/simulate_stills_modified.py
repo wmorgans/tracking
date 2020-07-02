@@ -9,7 +9,37 @@ import matplotlib.animation as animation
 import itertools
 import utils
 from pathlib import Path
+from scipy.integrate import simps
+from scipy.stats import rv_continuous
+from scipy.stats import beta
 
+class TruncatedPowerLaw(rv_continuous):
+    #Rab5
+    #persistant
+    #μ=1.352±0.102, τ0=0.045±0.006s,  λ=1.286±0.142
+    
+        #Rab5
+    #anti persistant
+    #μ=0.518±0.004 , τ0=0.140±0.002s, λ=0.352±0.002s−1  
+    def __init__(self, tau_0, mu, lamda, max_t):
+        super().__init__()
+        self.a = self.tau_0 = tau_0
+        self.b = max_t
+        self.mu = mu
+        self.lamda = lamda
+
+    def _pdf(self, x):
+        pdf = self.nonScaled_pdf(x)
+        scale = simps(pdf, x)
+        print(scale)
+        return (pdf/scale) 
+    
+    def nonScaled_pdf(self, x):
+        return (self.lamda*np.exp(-self.lamda*x)*(self.tau_0/(self.tau_0 + x))**self.mu) + (np.exp(-self.lamda*x)*self.mu*((self.tau_0**self.mu)/((self.tau_0+x)**(self.mu + 1))))
+    
+    def _cdf(self,x):
+        return (1 - (np.exp(-self.lamda*x)*(self.tau_0/(self.tau_0 + x))**self.mu))
+    
 class SyntheticData():
     
     def __init__(self, mode, nrows, ncols, npar, tend, dt, avgrad = 0.8, paretoshape = 3, avgint = 140,
@@ -36,12 +66,12 @@ class SyntheticData():
         self.avgint = avgint
         self.stdint = stdint
         
-        self.micronstopix = micronstopix #micronstopix [um/pi]
+        self.micronstopix = micronstopix #micronstopix [um/pi] #actually pix to microns
         self.diff_coeff_um = diff_coeff_um #um^2/s
         self.diff_coeff_pix = self.diff_coeff_um/pow(self.micronstopix,2) #pixels^2 per sec
         
         #var of awgn for const v
-        self.acc_scale = acc_scale
+        self.accScale = acc_scale
         
         self.store_df = pd.DataFrame(index=np.arange(self.npar*(self.nframes)),columns=['pid', 't', 'x', 'y', 'rx', 'ry', 'int', 'rot', 'v', 'frame'], dtype = float)
         self.particlesAtTime = np.zeros((self.npar,self.store_df.shape[1]))
@@ -53,6 +83,26 @@ class SyntheticData():
         self.kernel = AiryDisk2DKernel(2)
         # gauss_kernel = Gaussian2DKernel(2)
         # tophat_kernel = Tophat2DKernel(5)
+        
+        #Rab5
+        #persistant
+        #μ=1.352±0.102, τ0=0.045±0.006s,  λ=1.286±0.142
+        # tau_0, mu, lamda, max_t
+        self.persistentTime = TruncatedPowerLaw(0.045, 1.352, 1.286, 10)
+        
+        #Rab5
+        #anti persistant
+        #μ=0.518±0.004 , τ0=0.140±0.002s, λ=0.352±0.002s−1  
+        self.antipersistentTime = TruncatedPowerLaw(0.14, 0.518, 0.352, 10)
+        #1.337609372680772 4.617898610041352 0 6
+        self.velDistParams =  {'type':'beta', 'a':1.34, 'b':4.6, 'loc':0, 'scale':6}
+        self.runsAndRests = {}
+        
+        if self.mode == 'runsAndRests':
+            self.__determineRunsAndRests()
+        elif self.mode == 'RW':
+            for pID in range(self.npar):
+                self.runsAndRests[pID] = [('RW', self.tend + 1)]
         
         self.__writeFirstFrame()
         self.__writeFrames()
@@ -78,18 +128,18 @@ class SyntheticData():
         self.store_df.to_csv(outDir/name, index = False)
         
     def __determineRunsAndRests(self):
-        self.runsAndRests = {}
+        
         for pID in range(self.npar):
             self.runsAndRests[pID] = []
             if 0.9 > np.random.uniform():
                 mode = 'RW'
                 #Determine duration from truncated powerlaw 
-                duration = 
+                duration = self.antipersistentTime.rvs(1) 
             else:
                 mode = 'Dir'
                 #Determine duration from truncated powerlaw
-                duration = 
-            self.runsAndRests[pID].append(mode, duration)
+                duration =  self.persistentTime.rvs(1)         
+            self.runsAndRests[pID].append((mode, duration))
             
         persist = True
         i = 0
@@ -103,14 +153,15 @@ class SyntheticData():
                     if self.runsAndRests[pID][-1][0] == 'RW':
                         mode = 'Dir'
                         #Determine duration from truncated powerlaw 
-                        duration = 
+                        duration = self.persistentTime.rvs(1)
                     if self.runsAndRests[pID][-1][0] == 'Dir':
                         mode = 'RW'
                         #Determine duration from truncated powerlaw 
-                        duration =                     
-                    self.runsAndRests[pID].append(mode, duration)
+                        duration = self.antipersistentTime.rvs(1)
+                    time = self.runsAndRests[pID][-1][1] + duration
+                    self.runsAndRests[pID].append((mode, time))
                     
-            self.tempRunsAndRests = self.runsAndRests.copy()
+        self.tempRunsAndRests = self.runsAndRests.copy()
                     
             
         
@@ -154,30 +205,34 @@ class SyntheticData():
             self.tnow += self.dt
             self.particlesAtTime[:, 1] = self.tnow
             self.particlesAtTime[:, 9] = frame
-            for par in range(0,self.npar):
+            
+            for par in range(0, self.npar):
                 
                 t = self.tnow - self.dt
                 t_step = self.dt
                 
                 while t < self.tnow:
                     
+                    
+                    toPop = False    
                     t = self.tempRunsAndRests[par][0][1]
                     
                     if t > self.tnow:
                         dt = t_step
                     elif (t < self.tnow) and (t > self.tnow - t_step):
-                        dt = t_step - (t - self.tnow)
+                        dt = t - (self.tnow - self.dt)
                         t_step -= dt
                         toPop = True
                     else:
                         print('error')
-                
+                    
                     if self.tempRunsAndRests[par][0][0] == 'RW':
                         
                         self.particlesAtTime[par, :] = self.__rwStep(self.particlesAtTime[par, :], dt)
                         
                     elif self.tempRunsAndRests[par][0][0] == 'Dir':
-                        self.particlesAtTime[par, :] = nearlyConstVelStep(particlesAtTime[par, :], self.accScale, dt)
+                        self.particlesAtTime[par, :] = self.__nearlyConstVelStep(self.particlesAtTime[par, :], dt)
+                        
                         
                     if toPop:
                         self.tempRunsAndRests[par].pop(0)
@@ -197,6 +252,7 @@ class SyntheticData():
         
         
     def __placeGaussianMat(self, im, x_0,y_0,sig_x,sig_y,intensity,theta, nsig = 3):
+    
         row,col = im.shape
         
         x_0_int = int(round(x_0))
@@ -268,13 +324,13 @@ class SyntheticData():
         return im
 
     def __rwStep(self, particle, dt):
-        
         jumpscale = 1/np.sqrt(self.diff_coeff_pix*2*dt) 
         
         theta = random.uniform(0,2*np.pi)
         dinc = random.expovariate(jumpscale)
         dx = dinc*np.sin(theta)
         dy = dinc*np.cos(theta)
+
         particle[2] += dx
         particle[3] += dy
     
@@ -287,20 +343,24 @@ class SyntheticData():
     def __roundUpToOdd(self, f):
         return np.ceil(f) // 2 * 2 + 1
 
-    def __nearlyConstVelStep(particle, accScale, dt):
-        accMag = random.gauss(-accScale, accScale)
-        accTheta = random.gauss(0, np.pi/8)
+    def __nearlyConstVelStep(self, particle, dt):
+        if np.isnan(particle[8]):
+            vel = beta.rvs(a = self.velDistParams['a'], b = self.velDistParams['b'], loc = self.velDistParams['loc'], scale = self.velDistParams['scale'], size=1)
+            velPix = vel/self.micronstopix
+            particle[8] = velPix
         
-        if particle[8] == np.nan:
-            gene
-        vel = particle[8] + accMag
+        
+        velPix = particle[8]
+        accMag = random.gauss(0, self.accScale)
+        accTheta = random.gauss(0, np.pi/8)
+        velPix += accMag
         theta = particle[7] + accTheta
          
-        particle[2] += (vel*1)*np.sin(theta)
-        particle[3] += (vel*1)*np.cos(theta)
+        particle[2] += (velPix*1)*np.sin(theta)
+        particle[3] += (velPix*1)*np.cos(theta)
         
         return particle
     
-    def __nearlyConstAccStep(particle, jerkScale, dt):
+    def __nearlyConstAccStep(self, particle, jerkScale, dt):
         return particle
         

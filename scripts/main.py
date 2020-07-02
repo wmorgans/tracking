@@ -8,6 +8,7 @@ import utils
 import blobDetection
 import trackCreation
 from analysis import TrackAnalysis
+from simulate_stills_modified import SyntheticData
 import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
@@ -77,7 +78,7 @@ def createResultDF(readDir, writeFile):
 def main(fileDir, outDir):
     
     
-    if True:
+    if False:
         fileDir = Path("../../videos/simulated/05062020/")
         
         largeGT = utils.loadCSV(fileDir /'RW/50_0.85.csv')
@@ -106,6 +107,11 @@ def main(fileDir, outDir):
         analysis.plotAllTimeAve()
         analysisWithGround.plotAllTimeAve(ground = True)
 
+        return
+    
+    if True:
+        testingSynth = SyntheticData(mode = 'runsAndRests', nrows = 1000, ncols = 1000, npar = 50, tend = 12., dt = 0.012)
+        testingSynth.displayVid()
         return
     
         
