@@ -9,8 +9,8 @@ from pathlib import Path
 from scipy.integrate import simps
 from scipy.stats import rv_continuous, beta
 import sys
-sys.path.append(Path('../../generalScripts/itsample/'))
-from itsample import sample
+sys.path.append(Path('./../externalScripts/itsample/'))
+from externalScripts import itsample
 import copy
 
 class TruncatedPowerLaw(rv_continuous):
@@ -33,6 +33,9 @@ class TruncatedPowerLaw(rv_continuous):
         scale = simps(pdf, x)
         print(scale)
         return (pdf/scale) 
+    
+    # def _rvs(self, n = 1):
+    #     return itsample.sample(self.nonScaled_pdf, n, lower_bd=self.a, upper_bd=self.b)
     
     def nonScaled_pdf(self, x):
         return (self.lamda*np.exp(-self.lamda*x)*(self.tau_0/(self.tau_0 + x))**self.mu) + (np.exp(-self.lamda*x)*self.mu*((self.tau_0**self.mu)/((self.tau_0+x)**(self.mu + 1))))
@@ -142,11 +145,11 @@ class SyntheticData():
             if 0.9 > np.random.uniform():
                 mode = 'RW'
                 #Determine duration from truncated powerlaw 
-                duration = self.antipersistentTime.rvs(1)
+                duration = self.antipersistentTime.rvs(1) - 1
             else:
                 mode = 'Dir'
                 #Determine duration from truncated powerlaw
-                duration =  self.persistentTime.rvs(1)       
+                duration =  self.persistentTime.rvs(1) - 1       
             self.runsAndRests[pID].append((mode, duration))
             self.durationRunsAndRests[pID].append((mode, duration))
             
@@ -162,11 +165,11 @@ class SyntheticData():
                     if self.runsAndRests[pID][-1][0] == 'RW':
                         mode = 'Dir'
                         #Determine duration from truncated powerlaw 
-                        duration = self.persistentTime.rvs(1)
+                        duration = self.persistentTime.rvs(1) - 1
                     if self.runsAndRests[pID][-1][0] == 'Dir':
                         mode = 'RW'
                         #Determine duration from truncated powerlaw 
-                        duration = self.antipersistentTime.rvs(1)
+                        duration = self.antipersistentTime.rvs(1) - 1
                     time = self.runsAndRests[pID][-1][1] + duration
                     self.runsAndRests[pID].append((mode, time))
                     self.durationRunsAndRests[pID].append((mode, duration))                

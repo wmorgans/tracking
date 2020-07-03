@@ -17,8 +17,8 @@ import os
 import itertools
 from pathlib import Path
 import sys
-sys.path.append(Path('../../generalScripts/itsample/'))
-from itsample import sample
+sys.path.append(Path('./../externalScripts/itsample/'))
+from externalScripts import itsample
 
 def analyseResults(readFile):
     
@@ -135,6 +135,9 @@ def main(fileDir, outDir):
         x = np.linspace(0, 20, 1000)
         pers = testingSynth.persistentTime.pdf(x)
         anti = testingSynth.antipersistentTime.pdf(x)
+        
+        print(runs)
+        print(rests)
         
         plt.figure()
         plt.hist(runs, alpha=0.5, label='runs', color = 'r', density = True)
