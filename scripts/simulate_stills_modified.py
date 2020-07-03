@@ -12,6 +12,7 @@ from pathlib import Path
 from scipy.integrate import simps
 from scipy.stats import rv_continuous
 from scipy.stats import beta
+import copy
 
 class TruncatedPowerLaw(rv_continuous):
     #Rab5
@@ -43,33 +44,32 @@ class TruncatedPowerLaw(rv_continuous):
 class SyntheticData():
     
     def __init__(self, mode, nrows, ncols, npar, tend, dt, avgrad = 0.8, paretoshape = 3, avgint = 140,
-                 stdint = 50, micronstopix = 100/954.21, diff_coeff_um = 3, acc_scale = 0.2):
-        
+                 stdint = 50, pixToMicrons = 100/954.21, diff_coeff_um = 3, acc_scale = 0.2):
+       
         self.mode = mode
         
-        #specify image parameters
+        # specify image parameters
         self.nrows = nrows
         self.ncols = ncols
         self.npar = npar
         
-        #time params
+        # time params
         self.tend = tend
         self.dt = dt
         self.tnow = 0.
         self.nframes = int(tend/dt)
         
-        #Determine dist to draw particles x and y rad from
+        # Determine dist to draw particles x and y rad from
         self.avgrad = avgrad
         self.paretoshape = paretoshape
         
-        #determine normal dist to draw particle intensity from
+        # determine normal dist to draw particle intensity from
         self.avgint = avgint
         self.stdint = stdint
         
-        self.micronstopix = micronstopix #micronstopix [um/pi] #actually pix to microns
-        self.diff_coeff_um = diff_coeff_um #um^2/s
-        self.diff_coeff_pix = self.diff_coeff_um/pow(self.micronstopix,2) #pixels^2 per sec
-        
+        self.pixToMicrons = pixToMicrons  #  pixToMicrons [um/pi] 
+        self.diff_coeff_um = diff_coeff_um  #  [um^2/s]
+        self.diff_coeff_pix = self.diff_coeff_um/pow(self.pixToMicrons,2)   #[pixels^2 per sec]
         #var of awgn for const v
         self.accScale = acc_scale
         
@@ -99,18 +99,22 @@ class SyntheticData():
         #1.337609372680772 4.617898610041352 0 6
         self.velDistParams =  {'type':'beta', 'a':1.34, 'b':4.6, 'loc':0, 'scale':6}
         self.runsAndRests = {}
+        self.durationRunsAndRests = {}
         
         if self.mode == 'runsAndRests':
             self.__determineRunsAndRests()
         elif self.mode == 'RW':
             for pID in range(self.npar):
                 self.runsAndRests[pID] = [('RW', self.tend + 1)]
-        i
+
+        self.tempRunsAndRests = copy.deepcopy(self.runsAndRests)
+
         self.__writeFirstFrame()
         self.__writeFrames()
         self.store_df['frame'].astype('int')
         self.store_df['pointID'] = self.store_df.index.values
         self.store_df['a'] = np.pi* self.store_df['rx']* self.store_df['ry']
+        
     def displayVid(self):
         ims = []
         fig = plt.figure()
@@ -135,15 +139,17 @@ class SyntheticData():
         
         for pID in range(self.npar):
             self.runsAndRests[pID] = []
+            self.durationRunsAndRests[pID] = []
             if 0.9 > np.random.uniform():
                 mode = 'RW'
                 #Determine duration from truncated powerlaw 
-                duration = self.antipersistentTime.rvs(1) 
+                duration = self.antipersistentTime.rvs(1) - 1
             else:
                 mode = 'Dir'
                 #Determine duration from truncated powerlaw
-                duration =  self.persistentTime.rvs(1)         
+                duration =  self.persistentTime.rvs(1) - 1         
             self.runsAndRests[pID].append((mode, duration))
+            self.durationRunsAndRests[pID].append((mode, duration))
             
         persist = True
         i = 0
@@ -157,17 +163,14 @@ class SyntheticData():
                     if self.runsAndRests[pID][-1][0] == 'RW':
                         mode = 'Dir'
                         #Determine duration from truncated powerlaw 
-                        duration = self.persistentTime.rvs(1)
+                        duration = self.persistentTime.rvs(1) - 1
                     if self.runsAndRests[pID][-1][0] == 'Dir':
                         mode = 'RW'
                         #Determine duration from truncated powerlaw 
-                        duration = self.antipersistentTime.rvs(1)
+                        duration = self.antipersistentTime.rvs(1) - 1
                     time = self.runsAndRests[pID][-1][1] + duration
                     self.runsAndRests[pID].append((mode, time))
-                    
-        self.tempRunsAndRests = self.runsAndRests.copy()
-                    
-            
+                    self.durationRunsAndRests[pID].append((mode, duration))                
         
     def __writeFirstFrame(self):
         self.tnow = 0.
@@ -180,7 +183,6 @@ class SyntheticData():
             intensity = np.abs(np.random.normal(loc=self.avgint,scale=self.stdint))
 
             rotation = random.uniform(0,2*np.pi)
-            #vel = random.uniform(0, 2.5)
             self.particlesAtTime[particlecount,0] = particlecount
             self.particlesAtTime[particlecount,1] = self.tnow
             self.particlesAtTime[particlecount,2] = x
@@ -350,7 +352,7 @@ class SyntheticData():
     def __nearlyConstVelStep(self, particle, dt):
         if np.isnan(particle[8]):
             vel = beta.rvs(a = self.velDistParams['a'], b = self.velDistParams['b'], loc = self.velDistParams['loc'], scale = self.velDistParams['scale'], size=1)
-            velPix = vel/self.micronstopix
+            velPix = vel/self.pixToMicrons
             particle[8] = velPix
         
         

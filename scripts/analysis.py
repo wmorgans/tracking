@@ -321,9 +321,10 @@ class LoyaltyAnalysis:
         axs[1].set_xlabel('number of consecutive frames')
         axs[1].set_ylabel('frequency')
 
+
 class TrackAnalysis(CorrespondanceAnalysis, LoyaltyAnalysis):
-    def __init__(self, dF_tracks, dF_ground = None, pixsToMicrons = 954.21/100, thresh = 5):
-        
+    def __init__(self, dF_tracks, dF_ground = None, pixToMicrons = 100/954.21, thresh = 5):
+
         dF_tracks['frame'] = dF_tracks['frame'].astype('int')
         
         if 'z' not in dF_tracks.columns:
@@ -355,7 +356,7 @@ class TrackAnalysis(CorrespondanceAnalysis, LoyaltyAnalysis):
             
         temp = sorted(pd.unique(self.df_tracks['t']))
         self.dt = temp[1] - temp[0]
-        self.pixsToMicrons = pixsToMicrons
+        self.pixToMicrons = pixToMicrons
     
     def __dfToArray(self, df):
         nTracks = len(pd.unique(df.loc[:, 'trackID']))
@@ -454,7 +455,7 @@ class TrackAnalysis(CorrespondanceAnalysis, LoyaltyAnalysis):
         
             
         if timeU == 's':
-            #concert frames to seconds
+            #convert frames to seconds
             print('converting frames to seconds')
             timeLags[:, :] = timeLags[:, :] * self.dt
         elif timeU == 'frames':
@@ -464,8 +465,7 @@ class TrackAnalysis(CorrespondanceAnalysis, LoyaltyAnalysis):
         if distU == 'um':
             #convert pi^2 to um^2
             distU = r'$\mu m$'
-            
-            timeAveMSDs[:, :] = timeAveMSDs[:, :] * pow(self.pixsToMicrons, 2)
+            timeAveMSDs[:, :] = timeAveMSDs[:, :] * pow(self.pixToMicrons, 2)
         elif distU == 'pi':
             #concert frames to seconds
             distU = r'$pi$'

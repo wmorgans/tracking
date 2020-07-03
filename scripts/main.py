@@ -110,13 +110,38 @@ def main(fileDir, outDir):
         return
     
     if True:
-        testingSynth = SyntheticData(mode = 'runsAndRests', nrows = 300, ncols = 300, npar = 50, tend = 6., dt = 0.012)
+        micronsToPix = 954.21/100 #[pi/um]
+        testingSynth = SyntheticData(mode = 'runsAndRests', nrows = 400, ncols = 400, npar = 50, tend = 6., dt = 0.012)
         
         testingSynth.displayVid()
-        
-        analysis = TrackAnalysis(testingSynth.store_df)
-        
+        testingSynth.writeVid(Path('../../'))
+        df = utils.loadCSV(Path('../../runsAndRests_50_3.csv'))
+        analysis = TrackAnalysis(df)
         analysis.plotAllTracks(analysis.df_tracks, 'testing')
+        
+        plt.figure()
+        plt.hist(pd.unique(testingSynth.store_df['v'])[~np.isnan(pd.unique(testingSynth.store_df['v']))] / micronsToPix)
+        plt.show()
+             
+        runsAndRests = list(testingSynth.durationRunsAndRests.values())
+        
+        runsAndRests = [item for sublist in runsAndRests for item in sublist]
+        runs = [item[1] for item in runsAndRests if item[0] == 'Dir']
+        rests = [item[1] for item in runsAndRests if item[0] == 'RW']
+        
+        x = np.linspace(0, 20, 1000)
+        pers = testingSynth.persistentTime.pdf(x)
+        anti = testingSynth.antipersistentTime.pdf(x)
+        
+        plt.figure()
+        plt.hist(runs, alpha=0.5, label='runs', color = 'r', density = True)
+        plt.plot(x, pers, color = 'r')
+        plt.hist(rests, alpha=0.5, label='rests', color = 'b', density = True)
+        plt.plot(x, anti, color = 'b')
+        plt.legend(loc='upper right')
+        plt.show()
+        
+        
         return
     
         
