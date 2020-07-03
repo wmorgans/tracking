@@ -3,15 +3,14 @@ import utils
 import random
 import matplotlib.pyplot as plt
 from astropy.convolution import convolve, Gaussian2DKernel, Tophat2DKernel, AiryDisk2DKernel
-import sys
 import pandas as pd
 import matplotlib.animation as animation
-import itertools
-import utils
 from pathlib import Path
 from scipy.integrate import simps
-from scipy.stats import rv_continuous
-from scipy.stats import beta
+from scipy.stats import rv_continuous, beta
+import sys
+sys.path.append(Path('../../generalScripts/itsample/'))
+from itsample import sample
 import copy
 
 class TruncatedPowerLaw(rv_continuous):
@@ -143,11 +142,11 @@ class SyntheticData():
             if 0.9 > np.random.uniform():
                 mode = 'RW'
                 #Determine duration from truncated powerlaw 
-                duration = self.antipersistentTime.rvs(1) - 1
+                duration = self.antipersistentTime.rvs(1)
             else:
                 mode = 'Dir'
                 #Determine duration from truncated powerlaw
-                duration =  self.persistentTime.rvs(1) - 1         
+                duration =  self.persistentTime.rvs(1)       
             self.runsAndRests[pID].append((mode, duration))
             self.durationRunsAndRests[pID].append((mode, duration))
             
@@ -163,11 +162,11 @@ class SyntheticData():
                     if self.runsAndRests[pID][-1][0] == 'RW':
                         mode = 'Dir'
                         #Determine duration from truncated powerlaw 
-                        duration = self.persistentTime.rvs(1) - 1
+                        duration = self.persistentTime.rvs(1)
                     if self.runsAndRests[pID][-1][0] == 'Dir':
                         mode = 'RW'
                         #Determine duration from truncated powerlaw 
-                        duration = self.antipersistentTime.rvs(1) - 1
+                        duration = self.antipersistentTime.rvs(1)
                     time = self.runsAndRests[pID][-1][1] + duration
                     self.runsAndRests[pID].append((mode, time))
                     self.durationRunsAndRests[pID].append((mode, duration))                

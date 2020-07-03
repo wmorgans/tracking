@@ -16,6 +16,9 @@ from timeit import default_timer as timer
 import os
 import itertools
 from pathlib import Path
+import sys
+sys.path.append(Path('../../generalScripts/itsample/'))
+from itsample import sample
 
 def analyseResults(readFile):
     

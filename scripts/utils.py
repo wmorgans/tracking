@@ -54,8 +54,9 @@ def readVid(fileDir, singleFile):
 def loadCSV(fileLoc):
     
     df_load = pd.read_csv(fileLoc, index_col=False, header=0)
-    df = pd.concat([df_load['x'], df_load['x'], df_load['y'], df_load['t'], df_load['t'], df_load['pid'], df_load['t']], axis = 1)
-    df.columns = ['pointID', 'x', 'y', 'timePoint', 'a', 'trackID', 't']
+    df = pd.concat([df_load['x'], df_load['x'], df_load['y'], df_load['t'],
+                    df_load['t'], df_load['trackID'], df_load['t']], axis = 1)
+    df.columns = ['pointID', 'x', 'y', 'frame', 'a', 'trackID', 't']
     df['a'] = np.pi*df_load['rx']*df_load['ry']
     df['pointID'] = df.index.values
     
@@ -128,10 +129,11 @@ def getNColours(N):
     rgb = [(t[0]*255, t[1]*255, t[2]*255) for t in LoT]
     return rgb
 
-def writeVid(video,outdir, name, codec, fps, color):
+def writeVid(video, outdir, name, codec, fps, color):
     vid = floatToUint(video)
     vidShape = vid.shape
     fourcc = cv.VideoWriter_fourcc(codec[0], codec[1], codec[2], codec[3])
+    name += '.avi'
     filePath = outdir /name
 
     videoWriter = cv.VideoWriter(str(filePath), fourcc, fps, (vidShape[1],vidShape[0]), isColor = color)
