@@ -83,7 +83,7 @@ def main(fileDir, outDir):
         
         largeGT = utils.loadCSV(fileDir /'RW/50_0.85.csv')
         
-        #tracks  = trackCreation.main(largeGT.drop(['trackID'], axis = 1), len(pd.unique(largeGT['timePoint'])))
+        #tracks  = trackCreation.main(largeGT.drop(['trackID'], axis = 1), len(pd.unique(largeGT['frame'])))
         methods = ['naive', 'kalman', 'IMM']
         #easyTrack = pd.read_pickle(fileDir + '50_0.85_IMM.pkl')
         tracks = []
@@ -110,8 +110,13 @@ def main(fileDir, outDir):
         return
     
     if True:
-        testingSynth = SyntheticData(mode = 'runsAndRests', nrows = 1000, ncols = 1000, npar = 50, tend = 12., dt = 0.012)
+        testingSynth = SyntheticData(mode = 'runsAndRests', nrows = 300, ncols = 300, npar = 50, tend = 6., dt = 0.012)
+        
         testingSynth.displayVid()
+        
+        analysis = TrackAnalysis(testingSynth.store_df)
+        
+        analysis.plotAllTracks(analysis.df_tracks, 'testing')
         return
     
         
@@ -144,7 +149,7 @@ def main(fileDir, outDir):
     #df_tracks = groundTruth_df.drop['trackID']
    
     #Create tracks. Will automatically run naive, kalman and IMM methods. Each will have a seperate dataframe
-    df_tracks = trackCreation.main(df_kp, len(pd.unique(df_kp['timePoint'])))
+    df_tracks = trackCreation.main(df_kp, len(pd.unique(df_kp['frame'])))
     #print(type(imWithTracks[0]))
     
     end = timer()

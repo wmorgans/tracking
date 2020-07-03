@@ -73,7 +73,9 @@ class SyntheticData():
         #var of awgn for const v
         self.accScale = acc_scale
         
-        self.store_df = pd.DataFrame(index=np.arange(self.npar*(self.nframes)),columns=['pid', 't', 'x', 'y', 'rx', 'ry', 'int', 'rot', 'v', 'frame'], dtype = float)
+        self.store_df = pd.DataFrame(index=np.arange(self.npar*(self.nframes)),
+                                     columns=['trackID', 't', 'x', 'y', 'rx', 'ry', 'int', 'rot', 'v', 'frame'],
+                                     dtype = float)
         self.particlesAtTime = np.zeros((self.npar,self.store_df.shape[1]))
         
         self.im = np.zeros((self.nrows, self.ncols, self.nframes),dtype='float')
@@ -103,10 +105,12 @@ class SyntheticData():
         elif self.mode == 'RW':
             for pID in range(self.npar):
                 self.runsAndRests[pID] = [('RW', self.tend + 1)]
-        
+        i
         self.__writeFirstFrame()
         self.__writeFrames()
-        
+        self.store_df['frame'].astype('int')
+        self.store_df['pointID'] = self.store_df.index.values
+        self.store_df['a'] = np.pi* self.store_df['rx']* self.store_df['ry']
     def displayVid(self):
         ims = []
         fig = plt.figure()

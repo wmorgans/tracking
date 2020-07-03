@@ -26,7 +26,7 @@ class CorrespondanceAnalysis:
         self.n_dTracks = len(pd.unique(self.df_tracks.loc[:, 'trackID']))
         
         
-        self.nFrames = len(pd.unique(self.df_ground.loc[:, 'timePoint']))
+        self.nFrames = len(pd.unique(self.df_ground.loc[:, 'frame']))
         self.thresh = thresh
         
         self.mat_ground = self.__dfToArray(self.df_ground)
@@ -134,7 +134,7 @@ class CorrespondanceAnalysis:
         i = 0
         for track in pd.unique(df.loc[:, 'trackID']):
             dfTrack = df[df['trackID'] == track]
-            frames = dfTrack['timePoint']
+            frames = dfTrack['frame']
             mat[i, frames, :] = dfTrack.loc[:, ['x', 'y', 'z']]
             i += 1
             
@@ -181,7 +181,7 @@ class LoyaltyAnalysis:
                 self.n_gtTracks = len(pd.unique(self.df_ground.loc[:, 'trackID']))
                 self.n_dTracks = len(pd.unique(self.df_tracks.loc[:, 'trackID']))
                 
-                self.nFrames = len(pd.unique(self.df_ground.loc[:, 'timePoint']))
+                self.nFrames = len(pd.unique(self.df_ground.loc[:, 'frame']))
                 self.thresh = thresh
                 
                 self.mat_ground = self.__dfToArray(self.df_ground)
@@ -282,7 +282,7 @@ class LoyaltyAnalysis:
         i = 0
         for track in pd.unique(df.loc[:, 'trackID']):
             dfTrack = df[df['trackID'] == track]
-            frames = dfTrack['timePoint']
+            frames = dfTrack['frame']
             mat[i, frames, :] = dfTrack.loc[:, ['x', 'y', 'z']]
             i += 1
             
@@ -316,13 +316,23 @@ class LoyaltyAnalysis:
         axs[1].hist(self.numFramesOnParticle + 1, bins=logbins)
         axs[1].set_xscale('log')
         axs[1].set_yscale('log')
-        axs[1].set_xlim((1, 1001))
+        axs[1].set_xlim((1, 1000))
         axs[1].set_title('log-log')
         axs[1].set_xlabel('number of consecutive frames')
         axs[1].set_ylabel('frequency')
 
 class TrackAnalysis(CorrespondanceAnalysis, LoyaltyAnalysis):
     def __init__(self, dF_tracks, dF_ground = None, pixsToMicrons = 954.21/100, thresh = 5):
+        
+        dF_tracks['frame'] = dF_tracks['frame'].astype('int')
+        
+        if 'z' not in dF_tracks.columns:
+            dF_tracks['z'] = 0
+        if dF_ground is not None:
+            dF_ground['frame'] = dF_ground['frame'].astype('int')
+            if 'z' not in dF_ground.columns:
+                dF_ground['z'] = 0
+                
         self.timeAveMSDs = None
         self.ensembleMSD = None
         self.timeLags = None
@@ -333,18 +343,16 @@ class TrackAnalysis(CorrespondanceAnalysis, LoyaltyAnalysis):
         
         if np.any(dF_ground == None):
             self.df_tracks = dF_tracks.copy()
-
             self.n_dTracks = len(pd.unique(self.df_tracks.loc[:, 'trackID']))
             
-            self.nFrames = len(pd.unique(self.df_tracks.loc[:, 'timePoint']))
+            self.nFrames = len(pd.unique(self.df_tracks.loc[:, 'frame']))
             self.thresh = thresh
 
             self.mat_tracks = self.__dfToArray(self.df_tracks)
-            
             self.metrics = {}
         else:
             super().__init__(dF_ground = dF_ground, dF_tracks = dF_tracks, thresh = thresh, isSub = True)
-        
+            
         temp = sorted(pd.unique(self.df_tracks['t']))
         self.dt = temp[1] - temp[0]
         self.pixsToMicrons = pixsToMicrons
@@ -357,7 +365,7 @@ class TrackAnalysis(CorrespondanceAnalysis, LoyaltyAnalysis):
         i = 0
         for track in pd.unique(df.loc[:, 'trackID']):
             dfTrack = df[df['trackID'] == track]
-            frames = dfTrack['timePoint']
+            frames = dfTrack['frame'].to_numpy()
             mat[i, frames, :] = dfTrack.loc[:, ['x', 'y', 'z']]
             i += 1
             
@@ -487,11 +495,11 @@ class TrackAnalysis(CorrespondanceAnalysis, LoyaltyAnalysis):
     def plot_tracks(self, df, trackIDs):
     
         for trackID in trackIDs:
-            track = df.loc[df['trackID'] == trackID, ['x', 'y', 'timePoint']]
+            track = df.loc[df['trackID'] == trackID, ['x', 'y', 'frame']]
             
             sns.relplot(data = track, x = 'x', y = 'y',sort = False ,kind = 'line', estimator=None, lw = 0.5)
             plt.show()
-            sns.relplot(data = track, x = 'x', y = 'y', kind = 'scatter', hue = 'timePoint' , estimator=None, lw = 0.5)
+            sns.relplot(data = track, x = 'x', y = 'y', kind = 'scatter', hue = 'frame' , estimator=None, lw = 0.5)
             plt.show()
             
     def plotAllTracks(self, dF, title, save = False, fileDir = ""):

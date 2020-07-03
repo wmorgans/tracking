@@ -197,7 +197,7 @@ def twoFrameLinking(dF, lb, maxDiff, n_frames):
             print('halfway')
         if currentFrame == 0:
             #intilaise track ID. (add 1 so starts from 1)
-            df.loc[df['timePoint'] == 0, 'trackID'] = df.loc[df['timePoint'] == 0, 'pointID'] + 1
+            df.loc[df['frame'] == 0, 'trackID'] = df.loc[df['frame'] == 0, 'pointID'] + 1
             print("Assigned tracks")
             continue
         
@@ -207,7 +207,7 @@ def twoFrameLinking(dF, lb, maxDiff, n_frames):
         if startFrame < 0:
             startFrame = 0
         
-        window = df.loc[(df['timePoint'] >= startFrame) & (df['timePoint'] <= endFrame),:]
+        window = df.loc[(df['frame'] >= startFrame) & (df['frame'] <= endFrame),:]
         mostRecentTracks = []
         
         for track in pd.unique(window.trackID):
@@ -215,13 +215,13 @@ def twoFrameLinking(dF, lb, maxDiff, n_frames):
                 continue      
             #Gets the index of the row which matches the trackID and has the largest tp.
             #If multiple matches at one timepoint only returns the first
-            index = window.loc[window['trackID'] == track,'timePoint'].idxmax()
+            index = window.loc[window['trackID'] == track,'frame'].idxmax()
             mostRecentTracks.append((track, index))
         
         #print(mostRecentTracks)
         if len(mostRecentTracks) < 1:
             print('no active tracks')
-            pointIDs = df.loc[df['timePoint'] == currentFrame].index
+            pointIDs = df.loc[df['frame'] == currentFrame].index
             if len(pointIDs) < 1:
                 print('and no detections')
                 continue
@@ -236,8 +236,8 @@ def twoFrameLinking(dF, lb, maxDiff, n_frames):
         activeTracks = np.asarray(activeTracks)
         
         #update window to include current frame
-        window = df.loc[(df['timePoint'] >= startFrame) & (df['timePoint'] <= currentFrame),:]
-        pointIDs = df.loc[df['timePoint'] == currentFrame].index
+        window = df.loc[(df['frame'] >= startFrame) & (df['frame'] <= currentFrame),:]
+        pointIDs = df.loc[df['frame'] == currentFrame].index
         
         if len(pointIDs) < 1:
             print('no observations at current time step')
@@ -308,11 +308,11 @@ def twoFrameLinking_withKalman(dF, lb, maxDiff, F, P, Q, R, H, name, n_frames):
             
         if currentFrame == 0:
             #intilaise track ID. (add 1 so starts from 1)
-            df.loc[df['timePoint'] == 0, 'trackID'] = df.loc[df['timePoint'] == 0, 'pointID'] + 1
+            df.loc[df['frame'] == 0, 'trackID'] = df.loc[df['frame'] == 0, 'pointID'] + 1
             kalmanDict = {}
             
-            for track in pd.unique(df.loc[df['timePoint'] == 0, 'trackID']):
-                y = df.loc[((df['timePoint'] == 0) & (df['trackID'] == track)), ['x', 'y', 'a']].values.ravel()
+            for track in pd.unique(df.loc[df['frame'] == 0, 'trackID']):
+                y = df.loc[((df['frame'] == 0) & (df['trackID'] == track)), ['x', 'y', 'a']].values.ravel()
                 X_o = np.array([[y[0], 0, 0, y[1], 0, 0, y[2]]]).T
                               
                 #make a new calman filter object and store within a dictionary using track ID as key
@@ -326,7 +326,7 @@ def twoFrameLinking_withKalman(dF, lb, maxDiff, F, P, Q, R, H, name, n_frames):
         if startFrame < 0:
             startFrame = 0
         
-        window = df.loc[(df['timePoint'] >= startFrame) & (df['timePoint'] <= endFrame),:]
+        window = df.loc[(df['frame'] >= startFrame) & (df['frame'] <= endFrame),:]
         mostRecentTracks = []
         
         for track in pd.unique(window.trackID):
@@ -334,12 +334,12 @@ def twoFrameLinking_withKalman(dF, lb, maxDiff, F, P, Q, R, H, name, n_frames):
                 continue      
             #Gets the index of the row which matches the trackID and has the largest tp.
             #If multiple matches at one timepoint only returns the first
-            index = window.loc[window['trackID'] == track,'timePoint'].idxmax()
+            index = window.loc[window['trackID'] == track,'frame'].idxmax()
             mostRecentTracks.append((track, index))
             
         if len(mostRecentTracks) < 1:
             print('no active tracks')
-            pointIDs = df.loc[df['timePoint'] == currentFrame].index
+            pointIDs = df.loc[df['frame'] == currentFrame].index
             if len(pointIDs) < 1:
                 print('and no detections')
                 continue
@@ -366,8 +366,8 @@ def twoFrameLinking_withKalman(dF, lb, maxDiff, F, P, Q, R, H, name, n_frames):
         activeTracks = np.asarray(activeTracks)
         
         #update window to include current frame
-        window = df.loc[(df['timePoint'] >= startFrame) & (df['timePoint'] <= currentFrame),:]
-        pointIDs = df.loc[df['timePoint'] == currentFrame].index
+        window = df.loc[(df['frame'] >= startFrame) & (df['frame'] <= currentFrame),:]
+        pointIDs = df.loc[df['frame'] == currentFrame].index
         
         if len(pointIDs) < 1:
             print('no observations at current time step')
@@ -446,11 +446,11 @@ def twoFrameLinking_withIMM(dF, lb, maxDiff, F_R, P_R, Q_R,
             print('halfway')
         if currentFrame == 0:
             #intilaise track ID. (add 1 so starts from 1)
-            df.loc[df['timePoint'] == 0, 'trackID'] = df.loc[df['timePoint'] == 0, 'pointID'] + 1
+            df.loc[df['frame'] == 0, 'trackID'] = df.loc[df['frame'] == 0, 'pointID'] + 1
             IMM_Dict = {}
             
-            for track in pd.unique(df.loc[df['timePoint'] == 0, 'trackID']):
-                y = df.loc[((df['timePoint'] == 0) & (df['trackID'] == track)), ['x', 'y', 'a']].values.ravel()
+            for track in pd.unique(df.loc[df['frame'] == 0, 'trackID']):
+                y = df.loc[((df['frame'] == 0) & (df['trackID'] == track)), ['x', 'y', 'a']].values.ravel()
                 X_o = np.array([[y[0], 0, 0, y[1], 0, 0, y[2]]]).T
                               
                 #make a new calman filter object and store within a dictionary using track ID as key
@@ -467,7 +467,7 @@ def twoFrameLinking_withIMM(dF, lb, maxDiff, F_R, P_R, Q_R,
         if startFrame < 0:
             startFrame = 0
         
-        window = df.loc[(df['timePoint'] >= startFrame) & (df['timePoint'] <= endFrame),:]
+        window = df.loc[(df['frame'] >= startFrame) & (df['frame'] <= endFrame),:]
         mostRecentTracks = []
         
         for track in pd.unique(window.trackID):
@@ -475,12 +475,12 @@ def twoFrameLinking_withIMM(dF, lb, maxDiff, F_R, P_R, Q_R,
                 continue      
             #Gets the index of the row which matches the trackID and has the largest tp.
             #If multiple matches at one timepoint only returns the first
-            index = window.loc[window['trackID'] == track,'timePoint'].idxmax()
+            index = window.loc[window['trackID'] == track,'frame'].idxmax()
             mostRecentTracks.append((track, index))
             
         if len(mostRecentTracks) < 1:
             print('no active tracks')
-            pointIDs = df.loc[df['timePoint'] == currentFrame].index
+            pointIDs = df.loc[df['frame'] == currentFrame].index
             if len(pointIDs) < 1:
                 print('and no detections')
                 continue
@@ -512,8 +512,8 @@ def twoFrameLinking_withIMM(dF, lb, maxDiff, F_R, P_R, Q_R,
         activeTracks = np.asarray(activeTracks)
         
         #update window to include current frame
-        window = df.loc[(df['timePoint'] >= startFrame) & (df['timePoint'] <= currentFrame),:]
-        pointIDs = df.loc[df['timePoint'] == currentFrame].index
+        window = df.loc[(df['frame'] >= startFrame) & (df['frame'] <= currentFrame),:]
+        pointIDs = df.loc[df['frame'] == currentFrame].index
         
         costMatrix = calcCostMatrixIMM(window, activeTracks, pointIDs, IMM_Dict)  
         
@@ -597,7 +597,7 @@ def twoFrameLinking_withIMM(dF, lb, maxDiff, F_R, P_R, Q_R,
 def main(df_kp, n_frames):
     
     if (df_kp is None or n_frames is None):
-        return
+        return None
     #params
     lb = 1
     maxDiff = 25

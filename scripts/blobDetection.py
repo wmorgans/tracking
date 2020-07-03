@@ -77,7 +77,7 @@ def detectBlobs(im):
 
 def dataFrameOfBlobs(kpss, nkp):
     #Convert list of lists of kp objects to dataframe
-    df = pd.DataFrame(index=np.arange(sum(nkp)),columns=['pointID', 'x', 'y', 'timePoint', 'a'], dtype = float)
+    df = pd.DataFrame(index=np.arange(sum(nkp)),columns=['pointID', 'x', 'y', 'frame', 'a'], dtype = float)
     
     #may need to change this to start at 1
     pointID = 0
