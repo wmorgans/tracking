@@ -13,6 +13,39 @@ import exifread
 import datetime
 from pathlib import Path
 
+def set_size(width = 516/2, fraction=1):
+    """ Set aesthetic figure dimensions to avoid scaling in latex.
+
+    Parameters
+    ----------
+    width: float
+            Width in pts
+    fraction: float
+            Fraction of the width which you wish the figure to occupy
+
+    Returns
+    -------
+    fig_dim: tuple
+            Dimensions of figure in inches
+    """
+    # Width of figure
+    fig_width_pt = width * fraction
+
+    # Convert from pt to inches
+    inches_per_pt = 1 / 72.27
+
+    # Golden ratio to set aesthetic figure height
+    golden_ratio = (5**.5 - 1) / 2
+
+    # Figure width in inches
+    fig_width_in = fig_width_pt * inches_per_pt
+    # Figure height in inches
+    fig_height_in = fig_width_in * golden_ratio
+
+    fig_dim = (fig_width_in, fig_height_in)
+
+    return fig_dim
+
 
 def readVid(fileDir, singleFile):
     src = []
@@ -64,14 +97,16 @@ def loadCSV(fileLoc):
     if 'v' in df_load.columns:
         df['v'] = df_load['v']
     if 'frame' in df_load.columns:
-        df['timePoint'] = df_load['frame']
+        df['frame'] = df_load['frame']
     if 'z' in df_load.columns:
         df['z'] = df_load['z']
     else:
         df['z'] = 0
+    if 'int' in df_load.columns:
+	    df['i'] = df_load['int']
         
     #make sure columns which should be int are int
-    df[['pointID', 'trackID', 'timePoint']] = df[['pointID', 'trackID', 'timePoint']].astype('int')    
+    df[['pointID', 'trackID', 'frame']] = df[['pointID', 'trackID', 'frame']].astype('int')    
     return df
 
 # <?xml version="1.0" encoding="UTF-8" standalone="no"?>

@@ -14,6 +14,7 @@ import itertools
 import psutil
 import seaborn as sns
 from pathlib import Path
+import utils
 
 class CorrespondanceAnalysis:
     
@@ -60,9 +61,10 @@ class CorrespondanceAnalysis:
         
         
     def __calcAlphaAndBeta(self):
-        d_XY = np.sum(self.cost_XY[self.YIndex, self.XIndex])    
+        d_XY = np.sum(self.cost_XY[self.YIndex, self.XIndex]) 
+        print('d_XY: ', d_XY)
         d_XD = self.__getDummyCosts(self.n_gtTracks)
-
+        print('d_XD: ', d_XD)
         Ybar_tracks = (set(np.arange(self.n_dTracks + self.n_gtTracks)) - set(self.YIndex)) & set(np.arange(self.n_dTracks))
         
         if Ybar_tracks == set():
@@ -288,32 +290,37 @@ class LoyaltyAnalysis:
             
         return mat
     
-    def plotLoyalty(self):
+    def plotLoyalty(self, size = 3*516/4):
         current_cmap = matplotlib.cm.get_cmap('hot')
         current_cmap.set_bad(color='blue')
     
-        plt.figure()
+        plt.figure(figsize=utils.set_size(size))
         plt.imshow(self.minVals, cmap='hot', interpolation='nearest', aspect=self.minVals.shape[1]/self.minVals.shape[0])
-        plt.title('Loyalty plot: lowest cost associations against time')
+        plt.title('Lowest cost associations')
         plt.xlabel('time (frames)')
         plt.ylabel('detected track ID')
         cbar = plt.colorbar()
-        cbar.set_label('ID of lowest cost ground truth track')
+        cbar.set_label('Lowest cost GT track')
         
-    def plotHistConsecutiveFrames(self, title, nbins = 20):
+    def plotHistConsecutiveFrames(self, title, nbins = 20, first = False):
         
         #1 is added so range spans 1:1000 in stead of 0:999
+        if first:
+            numFramesOnParticle = self.nConsecutiveAssignments
+        else:
+            numFramesOnParticle = self.numFramesOnParticle
+            
         
         fig, axs = plt.subplots(2, 1, constrained_layout=True)
         fig.suptitle('Histogram of loyalty duration: ' + title)
-        hist, bins, _ = axs[0].hist(self.numFramesOnParticle + 1, bins = nbins)
+        hist, bins, _ = axs[0].hist(numFramesOnParticle + 1, bins = nbins)
         axs[0].set_xlim((0, 1000))
         axs[0].set_xlabel('number of consecutive frames')
         axs[0].set_ylabel('frequency')
         
         logbins = np.logspace(np.log10(bins[0]),np.log10(bins[-1]),len(bins))
         
-        axs[1].hist(self.numFramesOnParticle + 1, bins=logbins)
+        axs[1].hist(numFramesOnParticle + 1, bins=logbins)
         axs[1].set_xscale('log')
         axs[1].set_yscale('log')
         axs[1].set_xlim((1, 1000))
@@ -323,7 +330,7 @@ class LoyaltyAnalysis:
 
 
 class TrackAnalysis(CorrespondanceAnalysis, LoyaltyAnalysis):
-    def __init__(self, dF_tracks, dF_ground = None, pixToMicrons = 100/954.21, thresh = 5):
+    def __init__(self, dF_tracks, dF_ground = None, pixToMicrons = 954.21/100, thresh = 5):
 
         dF_tracks['frame'] = dF_tracks['frame'].astype('int')
         
@@ -428,13 +435,15 @@ class TrackAnalysis(CorrespondanceAnalysis, LoyaltyAnalysis):
             print('plotting tracks')
             if np.any(self.ensembleMSD == None):
                 self.timeLags, self.timeAveMSDs, self.ensembleMSD = self.ensembleAveMSD(self.mat_tracks)
-            self.__pltManyMSD(self.timeLags, self.timeAveMSDs)
+            title = 'Time average MSD from tracking trajectories'
+            self.__pltManyMSD(self.timeLags, self.timeAveMSDs, title)
                 
         elif ground == True:
             print('plotting ground')
             if np.any(self.ensembleMSD_ground == None):
                 self.timeLags_ground, self.timeAveMSDs_ground, self.ensembleMSD_ground = self.ensembleAveMSD(self.mat_ground)
-            self.__pltManyMSD(self.timeLags_ground, self.timeAveMSDs_ground)
+            title = 'Time average MSD from GT trajectories'
+            self.__pltManyMSD(self.timeLags_ground, self.timeAveMSDs_ground, title)
         
         
     def __pltMSD(self, timeLags, ensembleMSD):
@@ -451,7 +460,7 @@ class TrackAnalysis(CorrespondanceAnalysis, LoyaltyAnalysis):
         timeLags[row, col] = np.nan
         timeAveMSDs[row, col] = np.nan
         
-        plt.figure()
+        plt.figure(figsize=utils.set_size(3*516/4))
         
             
         if timeU == 's':
@@ -471,7 +480,7 @@ class TrackAnalysis(CorrespondanceAnalysis, LoyaltyAnalysis):
             distU = r'$pi$'
             
         
-        plt.title('time ave MSD')
+        plt.title(title)
         plt.loglog(timeLags.T, timeAveMSDs.T)
         plt.xlabel(r'$\tau ($' + timeU + r'$)$')
         plt.ylabel(r'$msd(\tau)$' + ' ' +  r'$($' + distU + r'$^2)$')
@@ -510,7 +519,8 @@ class TrackAnalysis(CorrespondanceAnalysis, LoyaltyAnalysis):
             df.loc[df['trackID'] == trackID, ['x', 'y']] = track.loc[:,['x', 'y']] - track.loc[track.index[0], ['x', 'y']]
         
         
-        sns.relplot(data = df, x = 'x', y = 'y',sort = False ,kind = 'line', hue = 'trackID', estimator=None, lw = 0.5, legend = False)
+        fig, ax = plt.subplots(figsize=utils.set_size())
+        sns.lineplot(ax = ax, data = df, x = 'x', y = 'y',sort = False, hue = 'trackID', estimator=None, lw = 0.5, legend = False)
         plt.title(title)
         #plt.axis((-150,150,-150,150))
         plt.xlabel('x - x0')

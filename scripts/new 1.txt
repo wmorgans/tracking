@@ -1,0 +1,14 @@
+AM meeting
+
+mixing of patients as rank increases
+mixing of cell types wth rank increases
+mixing of disease with rakn increases
+
+sub sample data does this effect bic
+	- keep cell proportions the same
+	
+order on ppms
+
+eprog meeting
+
+email nancy for clear answer on extension

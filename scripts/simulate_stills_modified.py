@@ -7,10 +7,8 @@ import pandas as pd
 import matplotlib.animation as animation
 from pathlib import Path
 from scipy.integrate import simps
-from scipy.stats import rv_continuous, beta
+from scipy.stats import rv_continuous, beta, norm
 import sys
-sys.path.append(Path('./../externalScripts/itsample/'))
-from externalScripts import itsample
 import copy
 
 class TruncatedPowerLaw(rv_continuous):
@@ -46,7 +44,7 @@ class TruncatedPowerLaw(rv_continuous):
 class SyntheticData():
     
     def __init__(self, mode, nrows, ncols, npar, tend, dt, avgrad = 0.8, paretoshape = 3, avgint = 140,
-                 stdint = 50, pixToMicrons = 100/954.21, diff_coeff_um = 3, acc_scale = 0.2):
+                 stdint = 50, pixToMicrons = 100/954.21, diff_coeff_um = 3, acc_scale = 0.2, velDist = {'type':'beta', 'a':1.34, 'b':4.6, 'loc':0, 'scale':6}):
        
         self.mode = mode
         
@@ -78,7 +76,9 @@ class SyntheticData():
         self.store_df = pd.DataFrame(index=np.arange(self.npar*(self.nframes)),
                                      columns=['trackID', 't', 'x', 'y', 'rx', 'ry', 'int', 'rot', 'v', 'frame'],
                                      dtype = float)
+        
         self.particlesAtTime = np.zeros((self.npar,self.store_df.shape[1]))
+        self.store_df[['ave_int', 'a', 'peri', 'circ', 'ecc']] = pd.DataFrame([[np.nan]*5], index=self.store_df.index)
         
         self.im = np.zeros((self.nrows, self.ncols, self.nframes),dtype='float')
         self.convim = self.im.copy()
@@ -99,9 +99,10 @@ class SyntheticData():
         #μ=0.518±0.004 , τ0=0.140±0.002s, λ=0.352±0.002s−1  
         self.antipersistentTime = TruncatedPowerLaw(0.14, 0.518, 0.352, 10)
         #1.337609372680772 4.617898610041352 0 6
-        self.velDistParams =  {'type':'beta', 'a':1.34, 'b':4.6, 'loc':0, 'scale':6}
+        self.velDistParams =  velDist
         self.runsAndRests = {}
         self.durationRunsAndRests = {}
+        self.jumpscales = []
         
         if self.mode == 'runsAndRests':
             self.__determineRunsAndRests()
@@ -113,9 +114,16 @@ class SyntheticData():
 
         self.__writeFirstFrame()
         self.__writeFrames()
+        
         self.store_df['frame'].astype('int')
         self.store_df['pointID'] = self.store_df.index.values
-        self.store_df['a'] = np.pi* self.store_df['rx']* self.store_df['ry']
+        
+        for par in pd.unique(self.store_df['trackID']):
+            self.store_df.loc[self.store_df['trackID'] == par, 'ave_int'] = \
+                self.store_df.loc[self.store_df['trackID'] == par, 'ave_int'].values[0] 
+        
+        self.__getMorphFeatures()
+        
         
     def displayVid(self):
         ims = []
@@ -130,12 +138,30 @@ class SyntheticData():
         
         plt.show()
         
-    def writeVid(self, outDir):
-        name = str(self.mode) + "_" + str(self.npar) + "_" + str(self.diff_coeff_um)
+    def writeVid(self, outDir, fname):
+        if self.mode == 'RW':
+            name = str(self.mode) + "_" + str(self.npar) + "_" + str(self.diff_coeff_um) + "_" + str(fname)
+        elif (self.mode == 'runsAndRests') & (self.velDistParams['type'] == 'gaus'):
+            name = str(self.mode) + "_" + str(self.npar) + "_" + str(self.velDistParams['mean']) + "_" + str(fname)
+        else:
+            name = str(self.mode) + "_" + str(self.npar) + "_" + str(fname)
+            
         color = False
         utils.writeVid(self.convim,outDir, name, 'MJPG', 1/self.dt, color)
         name += '.csv'
         self.store_df.to_csv(outDir/name, index = False)
+        
+    def __getMorphFeatures(self):
+        for par in range(self.npar):
+            row = self.store_df.iloc[par, :]
+            b, a = sorted(row[['rx', 'ry']])
+            
+            area = np.pi*a*b
+            peri = np.pi*(3*(a + b) - np.sqrt((3*a + b)*(a + 3*b)))
+            circ = 4*np.pi*area/peri**2
+            ecc = np.sqrt(1-(b/a))
+            
+            self.store_df.loc[self.store_df['trackID'] == par, ['a', 'peri', 'circ', 'ecc']] = [area, peri, circ, ecc]
         
     def __determineRunsAndRests(self):
         
@@ -196,10 +222,10 @@ class SyntheticData():
             self.particlesAtTime[particlecount,8] = np.nan
             self.particlesAtTime[particlecount,9] = 0
         
-            self.im[:, :, 0] = self.__placeGaussianMat(self.im[:, :, 0], x,y,radiusx,radiusy,intensity,rotation)
+            self.im[:, :, 0] = self.__placeGaussianMat(self.im[:, :, 0], x,y,radiusx,radiusy,intensity,rotation, particlecount)
             particlecount += 1
         
-        self.store_df[0:self.npar] = self.particlesAtTime
+        self.store_df.iloc[0:self.npar, 0:10] = self.particlesAtTime
         
         self.convim[:, :, 0] = convolve(self.im[:, :, 0],self.kernel)
         
@@ -250,7 +276,7 @@ class SyntheticData():
                 
                 self.im[:, :, frame] = self.__placeGaussianMat(self.im[:, :, frame], self.particlesAtTime[par,2],self.particlesAtTime[par,3],self.particlesAtTime[par,4],self.particlesAtTime[par,5],self.particlesAtTime[par,6],self.particlesAtTime[par,7])
 
-            self.store_df[frame*self.npar:(frame + 1)*self.npar] = self.particlesAtTime
+            self.store_df.iloc[frame*self.npar:(frame + 1)*self.npar, 0:10] = self.particlesAtTime
                 
             
             self.convim[:,:,frame] = convolve(self.im[:,:,frame],self.kernel)
@@ -259,7 +285,7 @@ class SyntheticData():
             self.convim[:,:,frame] = np.array((255/np.amax(self.convim[:,:,frame]))*self.convim[:,:,frame],dtype='uint8')
         
         
-    def __placeGaussianMat(self, im, x_0,y_0,sig_x,sig_y,intensity,theta, nsig = 3):
+    def __placeGaussianMat(self, im, x_0,y_0,sig_x,sig_y,intensity,theta, parID = np.nan, nsig = 3):
     
         row,col = im.shape
         
@@ -323,6 +349,9 @@ class SyntheticData():
         #print(particle)
         try:
             im[ymin: ymax, xmin: xmax] += particle
+            if ~np.isnan(parID):
+                self.store_df.loc[parID, 'ave_int'] = np.mean(particle)
+            
         except:
             print('error')
             if mod == '':
@@ -336,6 +365,7 @@ class SyntheticData():
         
         theta = random.uniform(0,2*np.pi)
         dinc = random.expovariate(jumpscale)
+        self.jumpscales.append(dinc)
         dx = dinc*np.sin(theta)
         dy = dinc*np.cos(theta)
 
@@ -343,7 +373,7 @@ class SyntheticData():
         particle[3] += dy
     
         #could change this so that is calculates the velocity based on previos time steps
-        particle[7] += random.uniform(-np.pi/4,np.pi/4)
+        particle[7] += theta
         particle[8] = np.nan
         
         return particle
@@ -353,7 +383,13 @@ class SyntheticData():
 
     def __nearlyConstVelStep(self, particle, dt):
         if np.isnan(particle[8]):
-            vel = beta.rvs(a = self.velDistParams['a'], b = self.velDistParams['b'], loc = self.velDistParams['loc'], scale = self.velDistParams['scale'], size=1)
+            
+            if self.velDistParams['type'] == 'beta':
+                vel = beta.rvs(a = self.velDistParams['a'], b = self.velDistParams['b'], \
+                               loc = self.velDistParams['loc'], scale = self.velDistParams['scale'],\
+                                   size=1)
+            elif self.velDistParams['type'] == 'gaus':
+                vel = norm.rvs(loc = self.velDistParams['mean'], scale = self.velDistParams['sigma'], size = 1)
             velPix = vel/self.pixToMicrons
             particle[8] = velPix
         
